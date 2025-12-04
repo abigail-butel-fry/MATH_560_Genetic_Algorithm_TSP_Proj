@@ -1,5 +1,5 @@
 Overarching Question: "How does the obj. function value change with iteration number on TSPs of various sizes?"
-- want to record length of best tour seen so far at each iteration, graph that as y vs. x values of iteration number, and try to characterize how it changes 
+- Want to record length of best tour seen so far at each iteration, graph that as y vs. x values of iteration number, and try to characterize how it changes 
 
 Also, plan to vary: 
  - number of cities
