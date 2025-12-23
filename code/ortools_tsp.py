@@ -8,16 +8,15 @@ This code will be used to get a baseline for what reasonable solutions
 may look like in order to assess the quality of the solutions that the
 genetic algorithm code generates.
 """
-
+from os import getcwd, path
 from geopy import distance
 import numpy as np
-from os import getcwd, path
 
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
-seed = 560
-rng = np.random.default_rng(seed=seed)
+SEED = 560
+rng = np.random.default_rng(seed=SEED)
 
 def read_tsp_file(fname, num_header_rows, num_nodes_file, num_nodes_sample):
     """Read coordinates from .tsp file (downloaded from TSPLIB)
@@ -48,15 +47,14 @@ def read_tsp_file(fname, num_header_rows, num_nodes_file, num_nodes_sample):
                              skiprows=num_header_rows,
                              ndmin=1,
                              max_rows=num_nodes_file)
-    
+
     # scale coordinates to get valid lat/lon values (decimal degrees)
-    for index, _ in enumerate(coordinates): 
-        coordinates[index]["lat"] *= 1e-4 
-        coordinates[index]["lon"] *= 1e-4 
+    for index, _ in enumerate(coordinates):
+        coordinates[index]["lat"] *= 1e-4
+        coordinates[index]["lon"] *= 1e-4
 
     random_points = rng.choice(coordinates, size=num_nodes_sample,
                                replace=False)
-    
     return np.reshape(random_points, (num_nodes_sample,))
 
 
@@ -136,22 +134,20 @@ def get_routes(solution, routing, manager):
 
 def main():
     """Entry point of the program."""
-    sample_sizes=[10]
-    #sample_sizes = [10, 100, 1000, 10000, 13509]
-    #scaling_factor = 100
+    sample_sizes = [10, 100, 1000, 10000, 13509]
     parent_dir = path.dirname(getcwd())
     tsp_fname = f"{parent_dir}/usa13509.tsp"
     data_dir = f"{parent_dir}/data"
-    print(tsp_fname)
     time_lim_sec = 300
+    manager = None
 
     #************************************************************************#
     #          LOAD COORDINATES; LOAD OR COMOPUTE DISTANCE MATRICES          #
     #************************************************************************#
 
     for size in sample_sizes: 
-        coord_fname = f"{data_dir}/usa13509_coords_{size}_nodes_{seed}.npy"
-        dist_mat_fname = f"{data_dir}/usa13509_dist_matrix_mi_{size}_nodes_{seed}.npy"
+        coord_fname = f"{data_dir}/usa13509_coords_{size}_nodes_{SEED}.npy"
+        dist_mat_fname = f"{data_dir}/usa13509_dist_matrix_mi_{size}_nodes_{SEED}.npy"
 
         # first, check whether a .npy file containing these coordinates exists
         if path.exists(coord_fname) and path.getsize(coord_fname) > 0: 
@@ -174,7 +170,7 @@ def main():
         #          FOR CURRENT SET OF POINTS, RUN THE SOLVER          #
         #*************************************************************#
         # Instantiate the data problem.
-        data = create_data_model(dist_mat_fname) 
+        data = create_data_model(dist_mat_fname)
 
         # Create the routing index manager.
         manager = pywrapcp.RoutingIndexManager(
@@ -215,8 +211,7 @@ def main():
             first_guess = np.empty(2, dtype=object)
             first_guess[0] = first_route.copy()
             first_guess[1] = first_distance.copy()
-            print(first_guess)
-            guess_fname = f"{data_dir}/usa13509_ortools_guess_{size}_nodes_{seed}_PATH_CHEAPEST_ARC.npy"
+            guess_fname = f"{data_dir}/usa13509_ortools_guess_{size}_nodes_{SEED}_PATH_CHEAPEST_ARC.npy"
             np.save(guess_fname, first_guess)
 
 
@@ -237,12 +232,8 @@ def main():
             new_guess = np.empty(2, dtype=object)
             new_guess[0] = new_route.copy()
             new_guess[1] = new_distance.copy()
-            print(new_guess)
-           #@note write route information, overall distance to a file
-            guess_fname = f"{data_dir}/usa13509_ortools_guess_{size}_nodes_{seed}_{time_lim_sec}_sec.npy"
+            guess_fname = f"{data_dir}/usa13509_ortools_guess_{size}_nodes_{SEED}_{time_lim_sec}_sec.npy"
             np.save(guess_fname, new_guess)
-
-        print("next iteration")
 
 
 if __name__ == "__main__":

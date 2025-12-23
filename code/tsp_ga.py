@@ -8,17 +8,18 @@
 # Also, want to vary: 
 #   - number of cities
 #   - population size
-#   - mutation rate(s)
+#   - number of solutions carried over between generations
 #*********************************************************************#
-import numpy as np
+
 from os import getcwd, path
-import pygad 
-import random
 from sys import maxsize
+import numpy as np
+import pandas as pd
+import pygad
 
 np.set_printoptions(threshold=maxsize)
-seed = 560
-rng = np.random.default_rng(seed=seed)
+SEED = 560
+rng = np.random.default_rng(seed=SEED)
 
 
 def generate_initial_pop(initial_pop_size, num_unique_nodes, guess_fname):
@@ -62,7 +63,7 @@ def fitness_function(ga_instance, solution, solution_index):
     #print(f"fitness function params: solution_index = {solution_index}")
     # ensure starting point and ending point are the same
     #print(solution.shape)
-    if solution[0] != solution[-1]: 
+    if solution[0] != solution[-1]:
         """print(f"ERROR")
         print(f"{solution_index}:\t{solution}")"""
         print("INFEASIBLE SOL")
@@ -236,6 +237,10 @@ def mutation_func(offspring, ga_instance):
     #print(offspring)
     return offspring
 
+def on_gen(ga_instance):
+    print(f"Generation : {ga_instance.generations_completed}", flush=True)
+    print(f"Fitness of the best solution : {ga_instance.best_solution()[1]}", flush=True)
+
 
 def main(): 
     """Entrypoint for program"""
@@ -244,77 +249,75 @@ def main():
     #global rng
     #sample_sizes = [10, 100, 1000, 10000, 13509]
     sample_sizes = [10]
+    initial_pop_sizes = [20, 200, 2000, 20000] 
+    num_trials = 5
    
     parent_dir = path.dirname(getcwd())
     data_dir = f"{parent_dir}/data"
     dataset_name = "usa13509"
     unit = "mi"
     extension = ".npy"
-    ortools_solver_time_lim = 300 
+    ortools_solver_time_lim = 300
 
     for num_nodes in sample_sizes:
         #print(f"SAMPLE SIZE = {num_nodes}")
         dist_matrix_fname = f"{data_dir}/{dataset_name}_dist_matrix_{unit}_"\
-                            f"{num_nodes}_nodes_{seed}{extension}"
+                            f"{num_nodes}_nodes_{SEED}{extension}"
 
         dist_matrix = np.load(dist_matrix_fname, allow_pickle=True)
         #print(dist_matrix)
 
-        initial_pop_size = num_nodes * 100
-        num_generations = 50
+        initial_pop_size = 2000 #num_nodes * 100
+        num_generations = 50 
+        # top 10% of organisms will mate 
         num_parents_mating = round(0.10 * initial_pop_size)
-        parent_selection_type = "rws"
-        # parent selection type options: 
-        #     sss (for steady-state selection)
-        #     rws (for roulette wheel selection)
-        #     sus (for stochastic universal selection)
-        #     rank (for rank selection)
-        #     random (for random selection)
-        #     tournament (for tournament selection)
-        keep_parents = -1 # keep default (-1) for now; has no effect if keep_elitism = 1
+        parent_selection_type = "rws" # roulette wheel selection
+        #keep_parents = -1 # keep default (-1) for now; has no effect if keep_elitism = 1
+        # keep n best solutions in the next generation 
         keep_elitism = 1 # keep default (1) for now 
-        # mutation_probability OR mutation_percent_genes and mutation_num_genes
-        # in optimization 101 text, ch. 14 pg. 5 says 1/1000 is common choice; 
-        # will start off by using this value 
-        mutation_probability = 0.001 
+        mutation_probability = 0.1
         save_best_solutions = False
         save_solutions = False
     
-        #mutation_type = "swap"
-        #guess_fname = "path_10_nodes.npy"
-        #guess_fname = "bad_guess.npy"
-        #guess_fname = "bad_guess_100.npy"
-        guess_fname = f"{data_dir}/{dataset_name}_ortools_guess_{num_nodes}_"\
-                      f"nodes_{seed}_300_sec{extension}"
-        
-        #initial_pop = generate_initial_pop(initial_pop_size, guess_fname)     
-        initial_pop = generate_initial_pop(initial_pop_size, num_nodes, None)            
-        #print(f"initial_pop shape: {initial_pop.shape}")
-        #@note consider implementing crossover_probability???
-        #@todo figure out what I want to do with keep_parents/keep_elitism parameters 
-        ga_instance = pygad.GA(num_generations=num_generations, 
-                               num_parents_mating=num_parents_mating, 
-                               fitness_func=fitness_function,
-                               initial_population=initial_pop, 
-                               gene_type=np.uint32,
-                               parent_selection_type=parent_selection_type,
-                               keep_parents=keep_parents, 
-                               keep_elitism=keep_elitism,
-                               crossover_type=crossover_func,
-                               mutation_type=mutation_func, 
-                               mutation_probability=mutation_probability,
-                               save_best_solutions=save_best_solutions, 
-                               save_solutions=save_solutions)
-        
-        ga_instance.run()
-        
-        print(ga_instance.best_solution())
-        approx_distance = ga_instance.best_solution()[1] * -1
-        print(f"distance: {approx_distance}")
-        #d = 1/(ga_instance.best_solution()[1] / scaling_factor)/scaling_factor
-        #print(f"distance: {d}")
-        #@todo create legend for fitness plot 
-        ga_instance.plot_fitness()
+        guess_fname = f"{data_dir}/{dataset_name}_ortools_best_guess_{num_nodes}_nodes_{SEED}.npy"
+        distance_array = np.empty((num_trials, num_generations), dtype=np.uint32)
+        distance_csv = f"{data_dir}/{dataset_name}_{num_nodes}_nodes_{initial_pop_size}_init_pop_1e-1_mut_prob.csv"
+    
+        for trial_index in range(num_trials):
+            #initial_pop = generate_initial_pop(initial_pop_size, num_nodes, guess_fname)     
+            initial_pop = generate_initial_pop(initial_pop_size, num_nodes, None)            
+            #print(f"initial_pop shape: {initial_pop.shape}")
+            ga_instance = pygad.GA(num_generations=num_generations, 
+                                num_parents_mating=num_parents_mating, 
+                                fitness_func=fitness_function,
+                                initial_population=initial_pop, 
+                                gene_type=np.uint32,
+                                parent_selection_type=parent_selection_type,
+                                #keep_parents=keep_parents,
+                                keep_elitism=keep_elitism,
+                                crossover_type=crossover_func,
+                                mutation_type=mutation_func,
+                                mutation_probability=mutation_probability,
+                                on_generation=on_gen,
+                                save_best_solutions=save_best_solutions, 
+                                save_solutions=save_solutions)
+            
+            ga_instance.run()
+            
+            print(ga_instance.best_solution())
+            approx_distance = ga_instance.best_solution()[1] * -1
+            #print(f"distance: {approx_distance}")
+            #ga_instance.plot_fitness()
+            #print(f"generation where best fitness spotted: {ga_instance.best_solution_generation}")
+
+            for sol_index in range(num_generations):
+                distance_array[trial_index][sol_index] = -1 * ga_instance.best_solutions_fitness[sol_index]
+            #print(distance_array[trial_index])
+
+            print(ga_instance.best_solutions_fitness)
+        #print(distance_array)
+        df = pd.DataFrame(distance_array)
+        df.to_csv(distance_csv)
 
 if __name__ == "__main__":
     main()
