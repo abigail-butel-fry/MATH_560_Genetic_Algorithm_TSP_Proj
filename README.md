@@ -4,7 +4,6 @@ Overarching Question: "How does the obj. function value change with iteration nu
 Also, plan to vary: 
  - number of cities
  - population size
- - mutation rate(s)
  - elitism
 
 Additionally, this repo contains code that makes use of Google's OR-Tools TSP solver, and the solutions obtained from this code can be used when generating the initial populations in the GA code. 
